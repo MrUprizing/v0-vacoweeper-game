@@ -1,0 +1,26 @@
+---
+description: Project conventions for VacoWeeper game
+alwaysApply: true
+---
+
+# Package Manager
+
+- ALWAYS use `npm` as the package manager. NEVER use `pnpm` or `yarn`.
+- Use `npm install` to add dependencies, `npm run dev` to start dev server, `npm run build` to build.
+- If a `pnpm-lock.yaml` file exists, delete it and use `package-lock.json` instead.
+
+# Git Author
+
+- Commits should use the author: `Alejandra Morales <moralejadesign@users.noreply.github.com>`
+- Do not change the git config.
+
+# Tech Stack
+
+- Next.js 16 (App Router) with TypeScript
+- Tailwind CSS v4
+- Framer Motion for animations
+- Client-side only rendering via `next/dynamic` with `ssr: false`
+
+# Language
+
+- Always respond in Spanish.

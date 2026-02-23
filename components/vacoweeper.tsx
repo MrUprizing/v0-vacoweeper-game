@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import html2canvas from "html2canvas"
 
 // ---------------------------------------------------------------------------
 // Types & constants
@@ -88,6 +89,280 @@ function saveScore(diff: Difficulty, time: number): ScoreEntry {
   lb[diff] = [...lb[diff], entry].sort((a, b) => a.time - b.time).slice(0, MAX_SCORES_PER_DIFFICULTY)
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(lb)) } catch {}
   return entry
+}
+
+// ---------------------------------------------------------------------------
+// Share result — messages & visual card
+// ---------------------------------------------------------------------------
+
+const WIN_MESSAGES: Record<Difficulty, string[]> = {
+  easy: [
+    "Vaco walked the park like a champ",
+    "Easy peasy, belly squeezy",
+    "Vaco didn't even break a pant",
+  ],
+  medium: [
+    "Vaco sniffed out every last one",
+    "Not a single garbage fooled this good boy",
+    "Vaco's nose knows no limits",
+  ],
+  hard: [
+    "Vaco is basically a bomb-sniffing legend",
+    "They should give Vaco a medal",
+    "Even the mailman is impressed",
+  ],
+}
+
+const LOSS_MESSAGES: Record<Difficulty, string[]> = {
+  easy: [
+    "Vaco ate garbage on a casual stroll",
+    "The easiest walk and Vaco still found trouble",
+    "Rookie mistake, even for a puppy",
+  ],
+  medium: [
+    "Vaco got too curious this time",
+    "That garbage looked suspicious but Vaco went for it",
+    "Vaco's nose betrayed him today",
+  ],
+  hard: [
+    "Vaco fought bravely but the garbage won",
+    "Hard mode is ruff, even for the best boys",
+    "Vaco gave it everything... including his lunch",
+  ],
+}
+
+function pickShareMessage(won: boolean, diff: Difficulty): string {
+  const msgs = won ? WIN_MESSAGES[diff] : LOSS_MESSAGES[diff]
+  return msgs[Math.floor(Math.random() * msgs.length)]
+}
+
+function ShareCard({
+  won,
+  diff,
+  time,
+  round,
+  rank,
+  message,
+  onClose,
+}: {
+  won: boolean
+  diff: Difficulty
+  time: number
+  round: number
+  rank: string | null
+  message: string
+  onClose: () => void
+}) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "shared">("idle")
+  const accent = "#E8734A"
+  const resultColor = won ? "#4AE87A" : "#E84A4A"
+  const resultText = won ? "ALL CLEAR" : "GAME OVER"
+  const subText = won ? `COMPLETED IN ${time}s` : "VACO ATE GARBAGE"
+  const vacoSrc = won ? "/images/vaco-face.jpeg" : "/images/vaco-sad.jpg"
+
+  const handleDownload = useCallback(async () => {
+    if (!cardRef.current) return
+    setStatus("saving")
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      })
+      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"))
+      if (!blob) { setStatus("idle"); return }
+
+      if (navigator.share && navigator.canShare?.({ files: [new File([blob], "vacoweeper.png", { type: "image/png" })] })) {
+        const file = new File([blob], "vacoweeper.png", { type: "image/png" })
+        await navigator.share({ files: [file], text: "vacoweeper.vercel.app" })
+        setStatus("shared")
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "vacoweeper-result.png"
+        a.click()
+        URL.revokeObjectURL(url)
+        setStatus("saved")
+      }
+    } catch {
+      setStatus("idle")
+    }
+    setTimeout(() => setStatus("idle"), 2500)
+  }, [])
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="flex flex-col items-center gap-4"
+        initial={{ scale: 0.85, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.85, opacity: 0, y: 20 }}
+        transition={{ type: "spring", stiffness: 260, damping: 22 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* The card itself — captured by html2canvas */}
+        <div
+          ref={cardRef}
+          style={{
+            width: 360,
+            padding: "32px 28px",
+            background: "#0a0a0a",
+            border: `1px solid ${resultColor}33`,
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 14,
+            fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
+            overflow: "hidden",
+          }}
+        >
+          {/* Corner accents */}
+          {[
+            { top: 0, left: 0, borderTop: `2px solid ${resultColor}`, borderLeft: `2px solid ${resultColor}` },
+            { top: 0, right: 0, borderTop: `2px solid ${resultColor}`, borderRight: `2px solid ${resultColor}` },
+            { bottom: 0, left: 0, borderBottom: `2px solid ${resultColor}`, borderLeft: `2px solid ${resultColor}` },
+            { bottom: 0, right: 0, borderBottom: `2px solid ${resultColor}`, borderRight: `2px solid ${resultColor}` },
+          ].map((s, i) => (
+            <span key={i} style={{ position: "absolute", width: 16, height: 16, pointerEvents: "none", ...s }} />
+          ))}
+
+          {/* Title bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 10, letterSpacing: "0.2em", color: "rgba(255,255,255,0.3)", fontFamily: "inherit" }}>
+              //PROJECT:
+            </span>
+            <span style={{ fontSize: 13, letterSpacing: "0.15em", color: "#E8E8E8", fontWeight: 700, fontFamily: "inherit" }}>
+              VACOWEEPER
+            </span>
+          </div>
+
+          {/* Vaco face */}
+          <img
+            src={vacoSrc}
+            alt="Vaco"
+            width={72}
+            height={72}
+            style={{ imageRendering: "pixelated", border: `1px solid ${resultColor}44` }}
+          />
+
+          {/* Result */}
+          <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: "0.3em", color: resultColor, textTransform: "uppercase" }}>
+            {resultText}
+          </span>
+
+          {/* Sub text */}
+          <span style={{ fontSize: 10, letterSpacing: "0.15em", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>
+            {subText}
+          </span>
+
+          {/* Stats row */}
+          <div style={{
+            display: "flex", gap: 16, marginTop: 4,
+            padding: "8px 16px",
+            border: `1px solid rgba(255,255,255,0.08)`,
+            position: "relative",
+          }}>
+            {/* Mini corner brackets */}
+            <span style={{ position: "absolute", top: -1, left: -1, width: 4, height: 4, borderTop: `1px solid ${accent}`, borderLeft: `1px solid ${accent}` }} />
+            <span style={{ position: "absolute", bottom: -1, right: -1, width: 4, height: 4, borderBottom: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em" }}>MODE</span>
+              <span style={{ fontSize: 13, color: accent, fontWeight: 600, letterSpacing: "0.15em" }}>{diff.toUpperCase()}</span>
+            </div>
+            <div style={{ width: 1, background: "rgba(255,255,255,0.08)" }} />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em" }}>TIME</span>
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{time}s</span>
+            </div>
+            <div style={{ width: 1, background: "rgba(255,255,255,0.08)" }} />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em" }}>ROUND</span>
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{String(round).padStart(2, "0")}</span>
+            </div>
+          </div>
+
+          {/* Rank (win only) */}
+          {won && rank && (
+            <div style={{
+              padding: "4px 14px",
+              border: `1px solid ${accent}`,
+              color: accent,
+              fontSize: 10,
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              position: "relative",
+            }}>
+              <span style={{ position: "absolute", top: -1, left: -1, width: 4, height: 4, borderTop: `1px solid ${accent}`, borderLeft: `1px solid ${accent}` }} />
+              <span style={{ position: "absolute", bottom: -1, right: -1, width: 4, height: 4, borderBottom: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} />
+              RANK: {rank}
+            </div>
+          )}
+
+          {/* Funny message */}
+          <span style={{
+            fontSize: 10,
+            color: "rgba(255,255,255,0.45)",
+            textAlign: "center",
+            textTransform: "uppercase",
+            letterSpacing: "0.12em",
+            lineHeight: 1.6,
+            maxWidth: 280,
+            marginTop: 2,
+          }}>
+            &ldquo;{message}&rdquo;
+          </span>
+
+          {/* URL */}
+          <span style={{ fontSize: 9, letterSpacing: "0.2em", color: "rgba(255,255,255,0.2)", marginTop: 4, textTransform: "uppercase" }}>
+            vacoweeper.vercel.app
+          </span>
+        </div>
+
+        {/* Buttons below the card (not captured) */}
+        <div className="flex gap-3">
+          <motion.button
+            onClick={handleDownload}
+            className="relative font-mono text-xs tracking-[0.2em] uppercase cursor-pointer px-5 py-2.5"
+            style={{ background: "transparent", border: `1px solid ${accent}`, color: accent }}
+            whileHover={{ scale: 1.05, backgroundColor: accent, color: "#0a0a0a" }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={status}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.15 }}
+              >
+                {status === "saving" ? "GENERATING..." : status === "saved" ? "SAVED!" : status === "shared" ? "SHARED!" : "DOWNLOAD & SHARE"}
+              </motion.span>
+            </AnimatePresence>
+          </motion.button>
+          <motion.button
+            onClick={onClose}
+            className="font-mono text-xs tracking-[0.2em] uppercase cursor-pointer px-5 py-2.5"
+            style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.4)" }}
+            whileHover={{ scale: 1.05, borderColor: "rgba(255,255,255,0.3)", color: "rgba(255,255,255,0.7)" }}
+            whileTap={{ scale: 0.95 }}
+          >
+            CLOSE
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -252,6 +527,8 @@ export default function Vacoweeper() {
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [leaderboard, setLeaderboard] = useState<LeaderboardData>({ easy: [], medium: [], hard: [] })
   const [lastRank, setLastRank] = useState<string | null>(null)
+  const [showShareCard, setShowShareCard] = useState(false)
+  const [shareMessage, setShareMessage] = useState("")
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTriggeredRef = useRef(false)
@@ -312,6 +589,7 @@ export default function Vacoweeper() {
       setLastRank(entry.rank)
     } else if (gameState !== "won") {
       setLastRank(null)
+      setShowShareCard(false)
     }
   }, [gameState, time, difficulty])
 
@@ -999,11 +1277,7 @@ export default function Vacoweeper() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3, duration: 0.3 }}
                   >
-                    {gameState === "won"
-                      ? "ALL CLEAR"
-                      : hitGoldenRetriever
-                        ? "GOLDEN RETRIEVER!"
-                        : "GAME OVER"}
+                    {gameState === "won" ? "ALL CLEAR" : "GAME OVER"}
                   </motion.span>
                   <motion.span
                     className="font-mono text-[10px] tracking-[0.15em] uppercase"
@@ -1012,11 +1286,7 @@ export default function Vacoweeper() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.4, duration: 0.3 }}
                   >
-                    {gameState === "won"
-                      ? `COMPLETED IN ${time}s`
-                      : hitGoldenRetriever
-                        ? "VACO FROZE IN HORROR"
-                        : "VACO ATE GARBAGE"}
+                    {gameState === "won" ? `COMPLETED IN ${time}s` : "VACO ATE GARBAGE"}
                   </motion.span>
                   {gameState === "won" && lastRank && (
                     <motion.div
@@ -1042,25 +1312,63 @@ export default function Vacoweeper() {
                     <span className="absolute pointer-events-none" style={{ bottom: -1, right: -1, width: "3px", height: "3px", borderBottom: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} aria-hidden="true" />
                     {"ROUND "}{String(round).padStart(2, "0")}
                   </motion.div>
-                  <motion.button
-                    onClick={() => { haptic([20, 30, 20]); initBoardWithRound() }}
-                    className="relative font-mono text-xs tracking-[0.2em] uppercase cursor-pointer px-6 py-2.5"
-                    style={{
-                      background: "transparent",
-                      border: `1px solid ${accent}`,
-                      color: accent,
-                    }}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5, duration: 0.3 }}
-                    whileHover={{ scale: 1.05, backgroundColor: accent, color: "#0a0a0a" }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <CornerBrackets color={accent} size={5} thickness={1} offset={-3} />
-                    {"PLAY AGAIN"}
-                  </motion.button>
+                  <div className="flex gap-3">
+                    <motion.button
+                      onClick={() => {
+                        haptic([10, 20, 10])
+                        setShareMessage(pickShareMessage(gameState === "won", difficulty))
+                        setShowShareCard(true)
+                      }}
+                      className="relative font-mono text-xs tracking-[0.2em] uppercase cursor-pointer px-5 py-2.5"
+                      style={{
+                        background: "transparent",
+                        border: `1px solid ${borderFaint}`,
+                        color: "rgba(255,255,255,0.55)",
+                      }}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5, duration: 0.3 }}
+                      whileHover={{ scale: 1.05, borderColor: accent, color: accent }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <CornerBrackets color={accent} size={5} thickness={1} offset={-3} />
+                      SHARE
+                    </motion.button>
+                    <motion.button
+                      onClick={() => { haptic([20, 30, 20]); initBoardWithRound() }}
+                      className="relative font-mono text-xs tracking-[0.2em] uppercase cursor-pointer px-5 py-2.5"
+                      style={{
+                        background: "transparent",
+                        border: `1px solid ${accent}`,
+                        color: accent,
+                      }}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.55, duration: 0.3 }}
+                      whileHover={{ scale: 1.05, backgroundColor: accent, color: "#0a0a0a" }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <CornerBrackets color={accent} size={5} thickness={1} offset={-3} />
+                      PLAY AGAIN
+                    </motion.button>
+                  </div>
                 </motion.div>
               </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Share card overlay */}
+          <AnimatePresence>
+            {showShareCard && (gameState === "won" || gameState === "lost") && (
+              <ShareCard
+                won={gameState === "won"}
+                diff={difficulty}
+                time={time}
+                round={round}
+                rank={lastRank}
+                message={shareMessage}
+                onClose={() => setShowShareCard(false)}
+              />
             )}
           </AnimatePresence>
         </div>
