@@ -155,6 +155,7 @@ function ShareCard({
 }) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "shared">("idle")
+  const [linkStatus, setLinkStatus] = useState<"idle" | "creating" | "copied">("idle")
   const accent = "#E8734A"
   const resultColor = won ? "#4AE87A" : "#E84A4A"
   const resultText = won ? "ALL CLEAR" : "GAME OVER"
@@ -192,6 +193,27 @@ function ShareCard({
     }
     setTimeout(() => setStatus("idle"), 2500)
   }, [])
+
+  const handleShareLink = useCallback(async () => {
+    if (linkStatus === "creating") return
+    setLinkStatus("creating")
+    try {
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ won, difficulty: diff, time, round, rank, message }),
+      })
+      if (!res.ok) throw new Error("API error")
+      const { id } = await res.json()
+      const origin = window.location.origin
+      const shareUrl = `${origin}/share/${id}`
+      await navigator.clipboard.writeText(shareUrl)
+      setLinkStatus("copied")
+    } catch {
+      setLinkStatus("idle")
+    }
+    setTimeout(() => setLinkStatus("idle"), 2500)
+  }, [won, diff, time, round, rank, message, linkStatus])
 
   return (
     <motion.div
@@ -330,7 +352,7 @@ function ShareCard({
         </div>
 
         {/* Buttons below the card (not captured) */}
-        <div className="flex gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
           <motion.button
             onClick={handleDownload}
             className="relative font-mono text-xs tracking-[0.2em] uppercase cursor-pointer px-5 py-2.5"
@@ -346,7 +368,26 @@ function ShareCard({
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.15 }}
               >
-                {status === "saving" ? "GENERATING..." : status === "saved" ? "SAVED!" : status === "shared" ? "SHARED!" : "DOWNLOAD & SHARE"}
+                {status === "saving" ? "GENERATING..." : status === "saved" ? "SAVED!" : status === "shared" ? "SHARED!" : "DOWNLOAD"}
+              </motion.span>
+            </AnimatePresence>
+          </motion.button>
+          <motion.button
+            onClick={handleShareLink}
+            className="relative font-mono text-xs tracking-[0.2em] uppercase cursor-pointer px-5 py-2.5"
+            style={{ background: "transparent", border: `1px solid ${resultColor}`, color: resultColor }}
+            whileHover={{ scale: 1.05, backgroundColor: resultColor, color: "#0a0a0a" }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={linkStatus}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.15 }}
+              >
+                {linkStatus === "creating" ? "CREATING..." : linkStatus === "copied" ? "LINK COPIED!" : "SHARE LINK"}
               </motion.span>
             </AnimatePresence>
           </motion.button>
