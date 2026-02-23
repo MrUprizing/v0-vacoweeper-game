@@ -1360,7 +1360,7 @@ export default function Vacoweeper() {
             {(gameState === "won" || gameState === "lost") && (
               <motion.div
                 className="absolute inset-0 flex flex-col items-center justify-center z-20"
-                style={{ background: "rgba(10,10,10,0.92)", backdropFilter: "blur(2px)" }}
+                style={{ background: "#0a0a0a" }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -1368,7 +1368,7 @@ export default function Vacoweeper() {
               >
                 <motion.div
                   className="relative flex flex-col items-center gap-4 p-6"
-                  style={{ border: `1px solid ${borderW}`, background: "#0a0a0a" }}
+                  style={{ border: `1px solid ${borderW}`, background: "#0a0a0a", maxWidth: "min(360px, calc(100vw - 32px))", width: "100%" }}
                   initial={{ opacity: 0, scale: 0.8, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -1432,12 +1432,12 @@ export default function Vacoweeper() {
                   </motion.div>
                   {/* Mini board end state */}
                   <motion.div
-                    style={{ overflow: "hidden", maxWidth: 280 }}
+                    style={{ overflow: "hidden", width: "100%", display: "flex", justifyContent: "center" }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5, duration: 0.4 }}
                   >
-                    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 1, flexShrink: 0 }}>
                       {(() => {
                         const cols = board[0]?.length ?? 9
                         const cellPx = Math.max(6, Math.min(16, Math.floor(280 / cols)))
