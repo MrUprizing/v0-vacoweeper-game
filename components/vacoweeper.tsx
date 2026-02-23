@@ -1359,8 +1359,8 @@ export default function Vacoweeper() {
           <AnimatePresence>
             {(gameState === "won" || gameState === "lost") && (
               <motion.div
-                className="absolute inset-0 flex flex-col items-center justify-center z-20"
-                style={{ background: "#0a0a0a" }}
+                className="fixed inset-0 flex flex-col items-center justify-center z-20"
+                style={{ background: "rgba(10,10,10,0.80)", backdropFilter: "blur(6px)" }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
