@@ -229,7 +229,7 @@ function ShareCard({
   return (
     <motion.div
       className="fixed inset-0 z-[200] flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)" }}
+      style={{ background: "#0a0a0a" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
