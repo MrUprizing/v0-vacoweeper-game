@@ -95,6 +95,17 @@ function buildBoardHtml(boardState: string): string {
   }
 }
 
+async function fetchImageAsDataUri(url: string): Promise<string> {
+  try {
+    const res = await fetch(url)
+    const buf = await res.arrayBuffer()
+    const mime = res.headers.get("content-type") || "image/jpeg"
+    return `data:${mime};base64,${Buffer.from(buf).toString("base64")}`
+  } catch {
+    return ""
+  }
+}
+
 function buildCardHtml(params: {
   won: boolean
   difficulty: string
@@ -103,14 +114,13 @@ function buildCardHtml(params: {
   rank: string | null
   message: string
   boardState: string | null
-  baseUrl: string
+  vacoImgDataUri: string
 }): string {
-  const { won, difficulty, time, round, rank, message, boardState, baseUrl } = params
+  const { won, difficulty, time, round, rank, message, boardState, vacoImgDataUri } = params
   const resultColor = won ? "#4AE87A" : "#E84A4A"
   const accent = "#E8734A"
   const resultText = won ? "ALL CLEAR" : "GAME OVER"
   const subText = won ? `COMPLETED IN ${time}s` : "VACO ATE GARBAGE"
-  const vacoImg = won ? "/images/vaco-face.jpeg" : "/images/vaco-sad.jpg"
   const boardHtml = boardState ? buildBoardHtml(boardState) : ""
 
   const rankHtml =
@@ -125,7 +135,6 @@ function buildCardHtml(params: {
   return `<!DOCTYPE html>
 <html><head>
   <meta charset="utf-8">
-  <base href="${baseUrl}/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=block" rel="stylesheet">
   <style>
@@ -145,7 +154,7 @@ function buildCardHtml(params: {
     <span style="font-size:13px;letter-spacing:0.15em;color:#E8E8E8;font-weight:700;font-family:inherit;">VACOWEEPER</span>
   </div>
 
-  <img src="${vacoImg}" width="72" height="72" style="image-rendering:pixelated;border:1px solid ${resultColor}44;object-fit:cover;display:block;">
+  <img src="${vacoImgDataUri}" width="72" height="72" style="image-rendering:pixelated;border:1px solid ${resultColor}44;object-fit:cover;display:block;">
 
   <span style="font-size:20px;font-weight:700;letter-spacing:0.3em;color:${resultColor};text-transform:uppercase;font-family:inherit;">${resultText}</span>
 
@@ -192,28 +201,15 @@ export async function POST(request: NextRequest) {
     const { won, difficulty, time, round, rank, message, boardState } = body
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
 
-    const html = buildCardHtml({ won, difficulty, time, round, rank, message, boardState, baseUrl })
+    const vacoImgPath = won ? "/images/vaco-face.jpeg" : "/images/vaco-sad.jpg"
+    const vacoImgDataUri = await fetchImageAsDataUri(`${baseUrl}${vacoImgPath}`)
+
+    const html = buildCardHtml({ won, difficulty, time, round, rank, message, boardState, vacoImgDataUri })
 
     const page = await browser.newPage()
     await page.setViewport({ width: 360, height: 800, deviceScaleFactor: 2 })
-    await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 })
-
-    // Wait for all images to load
-    await page.evaluate(async () => {
-      const images = Array.from(document.querySelectorAll("img"))
-      await Promise.all(
-        images.map((img) => {
-          if (img.complete) return Promise.resolve()
-          return new Promise((resolve) => {
-            img.onload = resolve
-            img.onerror = resolve
-            setTimeout(resolve, 5000)
-          })
-        })
-      )
-    })
-
-    await new Promise((r) => setTimeout(r, 200))
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30000 })
+    await new Promise((r) => setTimeout(r, 300))
 
     const card = await page.$("#card")
     if (!card) throw new Error("Card element not found")
