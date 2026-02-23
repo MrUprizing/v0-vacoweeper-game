@@ -38,8 +38,9 @@ const NUMBER_COLORS: Record<number, string> = {
   8: "#888888",
 }
 
-// Cell size is always fixed at 28px for visual consistency
-const CELL_SIZE = 28
+const MAX_CELL_SIZE = 28
+const MIN_CELL_SIZE = 14
+const UI_CHROME_HEIGHT = 300
 
 // ---------------------------------------------------------------------------
 // Haptic feedback helper
@@ -49,37 +50,13 @@ function haptic(pattern: number | number[] = 12) {
 }
 
 // ---------------------------------------------------------------------------
-// Moo sound helper — generates a short synth "moo" via Web Audio API
+// Moo sound helper — plays the custom MP3 bark/moo sound
 // ---------------------------------------------------------------------------
 function playMoo() {
   try {
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.type = "sawtooth"
-    osc.frequency.setValueAtTime(120, ctx.currentTime)
-    osc.frequency.linearRampToValueAtTime(85, ctx.currentTime + 0.35)
-    osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.55)
-    gain.gain.setValueAtTime(0.25, ctx.currentTime)
-    gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.1)
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.6)
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start(ctx.currentTime)
-    osc.stop(ctx.currentTime + 0.65)
-    // Second harmonic for richness
-    const osc2 = ctx.createOscillator()
-    const gain2 = ctx.createGain()
-    osc2.type = "sine"
-    osc2.frequency.setValueAtTime(240, ctx.currentTime)
-    osc2.frequency.linearRampToValueAtTime(170, ctx.currentTime + 0.35)
-    osc2.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.55)
-    gain2.gain.setValueAtTime(0.08, ctx.currentTime)
-    gain2.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.6)
-    osc2.connect(gain2)
-    gain2.connect(ctx.destination)
-    osc2.start(ctx.currentTime)
-    osc2.stop(ctx.currentTime + 0.65)
+    const audio = new Audio("/vaco-bark.mp3")
+    audio.volume = 0.4
+    audio.play().catch(() => {})
   } catch {}
 }
 
@@ -156,6 +133,7 @@ function CornerBrackets({
 // ---------------------------------------------------------------------------
 
 export default function Vacoweeper() {
+  const [audioUnlocked, setAudioUnlocked] = useState(false)
   const [difficulty, setDifficulty] = useState<Difficulty>("easy")
   const config = CONFIGS[difficulty]
 
@@ -226,8 +204,23 @@ export default function Vacoweeper() {
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTriggeredRef = useRef(false)
 
-  // Grid width in px
-  const gridWidthPx = config.cols * CELL_SIZE
+  const maxContainerWidth = difficulty === "hard" ? 960 : 680
+
+  const [cellSize, setCellSize] = useState(MAX_CELL_SIZE)
+  useEffect(() => {
+    const compute = () => {
+      const containerInner = Math.min(window.innerWidth - 16, maxContainerWidth) - 38
+      const availableH = window.innerHeight - UI_CHROME_HEIGHT
+      const byW = Math.floor(containerInner / config.cols)
+      const byH = Math.floor(availableH / config.rows)
+      setCellSize(Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, byW, byH)))
+    }
+    compute()
+    window.addEventListener("resize", compute)
+    return () => window.removeEventListener("resize", compute)
+  }, [config.cols, config.rows, maxContainerWidth])
+
+  const gridWidthPx = config.cols * cellSize
 
   // Init board
   const initBoard = useCallback(() => {
@@ -422,13 +415,53 @@ export default function Vacoweeper() {
   const borderW = "rgba(255,255,255,0.12)"
   const borderFaint = "rgba(255,255,255,0.06)"
 
+  if (!audioUnlocked) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center min-h-svh p-4 select-none"
+        style={{ backgroundColor: "#0a0a0a" }}
+      >
+        <div className="relative flex flex-col items-center gap-6 p-8" style={{ border: `1px solid ${borderW}`, background: "#0a0a0a" }}>
+          <CornerBrackets color={accent} size={14} thickness={1} offset={-4} squares />
+          <VacoFace expression="idle" size={80} />
+          <span className="font-mono text-lg tracking-[0.3em] uppercase font-bold" style={{ color: "#E8E8E8" }}>
+            {"VACOWEEPER"}
+          </span>
+          <span className="font-mono text-[10px] tracking-[0.15em] uppercase text-center" style={{ color: "rgba(255,255,255,0.4)" }}>
+            {"TAP TO ENABLE SOUND & START"}
+          </span>
+          <button
+            onClick={() => {
+              const audio = new Audio("/vaco-bark.mp3")
+              audio.volume = 0.4
+              audio.play().catch(() => {})
+              setAudioUnlocked(true)
+            }}
+            className="relative font-mono text-xs tracking-[0.2em] uppercase cursor-pointer px-6 py-2.5"
+            style={{
+              background: "transparent",
+              border: `1px solid ${accent}`,
+              color: accent,
+              transition: "background 0.15s, color 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = accent; e.currentTarget.style.color = "#0a0a0a" }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = accent }}
+          >
+            <CornerBrackets color={accent} size={5} thickness={1} offset={-3} />
+            {"ENTER"}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className="flex flex-col items-center justify-center min-h-svh p-2 select-none"
       style={{ backgroundColor: "#0a0a0a" }}
     >
       {/* Outer frame with corner brackets */}
-      <div className="relative w-full" style={{ padding: "18px", maxWidth: "min(calc(100vw - 16px), 680px)" }}>
+      <div className="relative w-full" style={{ padding: "18px", maxWidth: `min(calc(100vw - 16px), ${maxContainerWidth}px)` }}>
         {/* Outer large orange corner brackets + square markers */}
         <CornerBrackets color={accent} size={16} thickness={1} offset={0} squares />
         {/* Crosshair lines extending from edges */}
@@ -454,7 +487,7 @@ export default function Vacoweeper() {
               <span className="font-mono text-[10px] tracking-[0.2em] uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>
                 {"//PROJECT:"}
               </span>
-              <span className="font-mono text-base tracking-widest uppercase font-bold" style={{ color: "#E8E8E8" }}>
+              <span className="font-mono text-[13px] tracking-widest uppercase font-bold" style={{ color: "#E8E8E8" }}>
                 {"VACOWEEPER"}
               </span>
             </div>
@@ -572,7 +605,7 @@ export default function Vacoweeper() {
             )}
           </div>
 
-          {/* Game board -- scrolls horizontally when grid exceeds panel width */}
+          {/* Game board */}
           <div
             className="relative"
             style={{
@@ -588,7 +621,7 @@ export default function Vacoweeper() {
             <div
               className="grid mx-auto"
               style={{
-                gridTemplateColumns: `repeat(${config.cols}, ${CELL_SIZE}px)`,
+                gridTemplateColumns: `repeat(${config.cols}, ${cellSize}px)`,
                 gap: 0,
                 width: `${gridWidthPx}px`,
               }}
@@ -605,9 +638,9 @@ export default function Vacoweeper() {
                       key={`${r}-${c}`}
                       className={`flex items-center justify-center p-0 font-mono ${gasBombMode ? "cursor-crosshair" : "cursor-pointer"}`}
                       style={{
-                        width: `${CELL_SIZE}px`,
-                        height: `${CELL_SIZE}px`,
-                        fontSize: "12px",
+                        width: `${cellSize}px`,
+                        height: `${cellSize}px`,
+                        fontSize: `${Math.max(8, Math.round(cellSize * 0.43))}px`,
                         fontWeight: "bold",
                         lineHeight: 1,
                         background: isHitMine
