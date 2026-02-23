@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import html2canvas from "html2canvas"
 
 // ---------------------------------------------------------------------------
 // Types & constants
@@ -155,7 +154,6 @@ function ShareCard({
   board: Cell[][]
   onClose: () => void
 }) {
-  const cardRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "shared">("idle")
   const [linkStatus, setLinkStatus] = useState<"idle" | "creating" | "copied">("idle")
   const accent = "#E8734A"
@@ -165,17 +163,15 @@ function ShareCard({
   const vacoSrc = won ? "/images/vaco-face.jpeg" : "/images/vaco-sad.jpg"
 
   const handleDownload = useCallback(async () => {
-    if (!cardRef.current) return
     setStatus("saving")
     try {
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: null,
-        scale: 2,
-        useCORS: true,
-        logging: false,
+      const res = await fetch("/api/screenshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ won, difficulty: diff, time, round, rank, message, boardState: JSON.stringify(board) }),
       })
-      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"))
-      if (!blob) { setStatus("idle"); return }
+      if (!res.ok) throw new Error("Screenshot failed")
+      const blob = await res.blob()
 
       if (navigator.share && navigator.canShare?.({ files: [new File([blob], "vacoweeper.png", { type: "image/png" })] })) {
         const file = new File([blob], "vacoweeper.png", { type: "image/png" })
@@ -194,7 +190,7 @@ function ShareCard({
       setStatus("idle")
     }
     setTimeout(() => setStatus("idle"), 2500)
-  }, [])
+  }, [won, diff, time, round, rank, message, board])
 
   const handleShareLink = useCallback(async () => {
     if (linkStatus === "creating") return
@@ -243,9 +239,8 @@ function ShareCard({
         transition={{ type: "spring", stiffness: 260, damping: 22 }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* The card itself — captured by html2canvas */}
+        {/* The card itself */}
         <div
-          ref={cardRef}
           style={{
             width: 360,
             padding: "32px 28px",
@@ -309,19 +304,19 @@ function ShareCard({
             {/* Mini corner brackets */}
             <span style={{ position: "absolute", top: -1, left: -1, width: 4, height: 4, borderTop: `1px solid ${accent}`, borderLeft: `1px solid ${accent}` }} />
             <span style={{ position: "absolute", bottom: -1, right: -1, width: 4, height: 4, borderBottom: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} />
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em" }}>MODE</span>
-              <span style={{ fontSize: 13, color: accent, fontWeight: 600, letterSpacing: "0.15em" }}>{diff.toUpperCase()}</span>
+            <div style={{ display: "flex", flexDirection: "column", textAlign: "center", gap: 2, minWidth: 48 }}>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em", display: "block" }}>MODE</span>
+              <span style={{ fontSize: 13, color: accent, fontWeight: 600, letterSpacing: "0.15em", display: "block" }}>{diff.toUpperCase()}</span>
             </div>
-            <div style={{ width: 1, background: "rgba(255,255,255,0.08)" }} />
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em" }}>TIME</span>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{time}s</span>
+            <div style={{ width: 1, background: "rgba(255,255,255,0.08)", alignSelf: "stretch" }} />
+            <div style={{ display: "flex", flexDirection: "column", textAlign: "center", gap: 2, minWidth: 48 }}>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em", display: "block" }}>TIME</span>
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 600, display: "block" }}>{time}s</span>
             </div>
-            <div style={{ width: 1, background: "rgba(255,255,255,0.08)" }} />
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em" }}>ROUND</span>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{String(round).padStart(2, "0")}</span>
+            <div style={{ width: 1, background: "rgba(255,255,255,0.08)", alignSelf: "stretch" }} />
+            <div style={{ display: "flex", flexDirection: "column", textAlign: "center", gap: 2, minWidth: 48 }}>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em", display: "block" }}>ROUND</span>
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 600, display: "block" }}>{String(round).padStart(2, "0")}</span>
             </div>
           </div>
 
@@ -346,11 +341,12 @@ function ShareCard({
           {board.length > 0 && (() => {
             const cols = board[0]?.length ?? 9
             const cellPx = Math.max(6, Math.min(16, Math.floor(280 / cols)))
+            const fontSize = Math.max(4, cellPx - 4)
             return (
-              <div style={{ overflow: "hidden", marginTop: 2 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <table style={{ borderCollapse: "separate", borderSpacing: 1, margin: 0, padding: 0, tableLayout: "fixed" }}>
+                <tbody>
                   {board.map((row, r) => (
-                    <div key={r} style={{ display: "flex", gap: 1 }}>
+                    <tr key={r}>
                       {row.map((cell, c) => {
                         let bg = "rgba(255,255,255,0.06)"
                         let borderColor = "rgba(255,255,255,0.1)"
@@ -376,30 +372,29 @@ function ShareCard({
                           color = "#E8734A"
                         }
                         return (
-                          <div
+                          <td
                             key={c}
                             style={{
                               width: cellPx,
                               height: cellPx,
                               background: bg,
                               border: `1px solid ${borderColor}`,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: Math.max(4, cellPx - 4),
+                              fontSize,
                               color,
-                              lineHeight: 1,
-                              flexShrink: 0,
+                              textAlign: "center",
+                              verticalAlign: "middle",
+                              padding: 0,
+                              lineHeight: "1",
                             }}
                           >
                             {content}
-                          </div>
+                          </td>
                         )
                       })}
-                    </div>
+                    </tr>
                   ))}
-                </div>
-              </div>
+                </tbody>
+              </table>
             )
           })()}
 

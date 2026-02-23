@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git add components/vacoweeper.tsx && git commit -m \"$\\(cat <<'EOF'\nfix: make share card overlay background fully opaque\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git push 2>&1)"
+    ]
+  }
+}
