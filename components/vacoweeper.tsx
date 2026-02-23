@@ -143,6 +143,7 @@ function ShareCard({
   round,
   rank,
   message,
+  board,
   onClose,
 }: {
   won: boolean
@@ -151,6 +152,7 @@ function ShareCard({
   round: number
   rank: string | null
   message: string
+  board: Cell[][]
   onClose: () => void
 }) {
   const cardRef = useRef<HTMLDivElement>(null)
@@ -201,7 +203,7 @@ function ShareCard({
       const res = await fetch("/api/share", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ won, difficulty: diff, time, round, rank, message }),
+        body: JSON.stringify({ won, difficulty: diff, time, round, rank, message, boardState: JSON.stringify(board) }),
       })
       if (!res.ok) throw new Error("API error")
       const { id } = await res.json()
@@ -222,7 +224,7 @@ function ShareCard({
       setLinkStatus("idle")
     }
     setTimeout(() => setLinkStatus("idle"), 2500)
-  }, [won, diff, time, round, rank, message, linkStatus])
+  }, [won, diff, time, round, rank, message, board, linkStatus])
 
   return (
     <motion.div
@@ -339,6 +341,67 @@ function ShareCard({
               RANK: {rank}
             </div>
           )}
+
+          {/* Mini board */}
+          {board.length > 0 && (() => {
+            const cols = board[0]?.length ?? 9
+            const cellPx = Math.max(6, Math.min(16, Math.floor(280 / cols)))
+            return (
+              <div style={{ overflow: "hidden", marginTop: 2 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  {board.map((row, r) => (
+                    <div key={r} style={{ display: "flex", gap: 1 }}>
+                      {row.map((cell, c) => {
+                        let bg = "rgba(255,255,255,0.06)"
+                        let borderColor = "rgba(255,255,255,0.1)"
+                        let content = ""
+                        let color = "transparent"
+                        if (cell.state === "revealed") {
+                          bg = cell.isMine ? "rgba(232,74,74,0.18)" : "rgba(255,255,255,0.02)"
+                          borderColor = cell.isMine ? "rgba(232,74,74,0.3)" : "rgba(255,255,255,0.04)"
+                          if (cell.isMine) {
+                            content = "×"
+                            color = "#E84A4A"
+                          } else if (cell.adjacentMines > 0) {
+                            content = String(cell.adjacentMines)
+                            color = NUMBER_COLORS[cell.adjacentMines] || "#E8E8E8"
+                          } else {
+                            content = cell.treat
+                            color = "rgba(255,255,255,0.08)"
+                          }
+                        } else if (cell.state === "flagged") {
+                          bg = "rgba(232,115,74,0.12)"
+                          borderColor = "rgba(232,115,74,0.35)"
+                          content = "▶"
+                          color = "#E8734A"
+                        }
+                        return (
+                          <div
+                            key={c}
+                            style={{
+                              width: cellPx,
+                              height: cellPx,
+                              background: bg,
+                              border: `1px solid ${borderColor}`,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: Math.max(4, cellPx - 4),
+                              color,
+                              lineHeight: 1,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {content}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Funny message */}
           <span style={{
@@ -1367,6 +1430,70 @@ export default function Vacoweeper() {
                     <span className="absolute pointer-events-none" style={{ bottom: -1, right: -1, width: "3px", height: "3px", borderBottom: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} aria-hidden="true" />
                     {"ROUND "}{String(round).padStart(2, "0")}
                   </motion.div>
+                  {/* Mini board end state */}
+                  <motion.div
+                    style={{ overflow: "hidden", maxWidth: 280 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5, duration: 0.4 }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                      {(() => {
+                        const cols = board[0]?.length ?? 9
+                        const cellPx = Math.max(6, Math.min(16, Math.floor(280 / cols)))
+                        return board.map((row, r) => (
+                          <div key={r} style={{ display: "flex", gap: 1 }}>
+                            {row.map((cell, c) => {
+                              let bg = "rgba(255,255,255,0.06)"
+                              let borderColor = "rgba(255,255,255,0.1)"
+                              let content = ""
+                              let color = "transparent"
+                              if (cell.state === "revealed") {
+                                bg = cell.isMine ? "rgba(232,74,74,0.18)" : "rgba(255,255,255,0.02)"
+                                borderColor = cell.isMine ? "rgba(232,74,74,0.3)" : "rgba(255,255,255,0.04)"
+                                if (cell.isMine) {
+                                  content = "×"
+                                  color = "#E84A4A"
+                                } else if (cell.adjacentMines > 0) {
+                                  content = String(cell.adjacentMines)
+                                  color = NUMBER_COLORS[cell.adjacentMines] || "#E8E8E8"
+                                } else {
+                                  content = cell.treat
+                                  color = "rgba(255,255,255,0.08)"
+                                }
+                              } else if (cell.state === "flagged") {
+                                bg = "rgba(232,115,74,0.12)"
+                                borderColor = "rgba(232,115,74,0.35)"
+                                content = "▶"
+                                color = "#E8734A"
+                              }
+                              return (
+                                <div
+                                  key={c}
+                                  style={{
+                                    width: cellPx,
+                                    height: cellPx,
+                                    background: bg,
+                                    border: `1px solid ${borderColor}`,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: Math.max(4, cellPx - 4),
+                                    color,
+                                    lineHeight: 1,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {content}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ))
+                      })()}
+                    </div>
+                  </motion.div>
+
                   <div className="flex gap-3">
                     <motion.button
                       onClick={() => {
@@ -1422,6 +1549,7 @@ export default function Vacoweeper() {
                 round={round}
                 rank={lastRank}
                 message={shareMessage}
+                board={board}
                 onClose={() => setShowShareCard(false)}
               />
             )}

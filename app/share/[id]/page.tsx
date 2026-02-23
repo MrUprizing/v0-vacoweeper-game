@@ -121,6 +121,77 @@ export default async function SharePage({ params }: Props) {
             RANK: {result.rank}
           </div>
         )}
+        {result.boardState && (() => {
+          type CellSnapshot = {
+            isMine: boolean
+            adjacentMines: number
+            state: "hidden" | "revealed" | "flagged"
+            treat: string
+          }
+          const NUMBER_COLORS: Record<number, string> = {
+            1: "#6BA4E8", 2: "#4AE87A", 3: "#E8734A", 4: "#A46BE8",
+            5: "#E84A4A", 6: "#4AE8D4", 7: "#E8E8E8", 8: "#888888",
+          }
+          let board: CellSnapshot[][] = []
+          try { board = JSON.parse(result.boardState) } catch { return null }
+          const cols = board[0]?.length ?? 9
+          const cellPx = Math.max(6, Math.min(16, Math.floor(280 / cols)))
+          return (
+            <div style={{ overflow: "hidden" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                {board.map((row, r) => (
+                  <div key={r} style={{ display: "flex", gap: 1 }}>
+                    {row.map((cell, c) => {
+                      let bg = "rgba(255,255,255,0.06)"
+                      let borderColor = "rgba(255,255,255,0.1)"
+                      let content = ""
+                      let color = "transparent"
+                      if (cell.state === "revealed") {
+                        bg = cell.isMine ? "rgba(232,74,74,0.18)" : "rgba(255,255,255,0.02)"
+                        borderColor = cell.isMine ? "rgba(232,74,74,0.3)" : "rgba(255,255,255,0.04)"
+                        if (cell.isMine) {
+                          content = "×"
+                          color = "#E84A4A"
+                        } else if (cell.adjacentMines > 0) {
+                          content = String(cell.adjacentMines)
+                          color = NUMBER_COLORS[cell.adjacentMines] || "#E8E8E8"
+                        } else {
+                          content = cell.treat
+                          color = "rgba(255,255,255,0.08)"
+                        }
+                      } else if (cell.state === "flagged") {
+                        bg = "rgba(232,115,74,0.12)"
+                        borderColor = "rgba(232,115,74,0.35)"
+                        content = "▶"
+                        color = "#E8734A"
+                      }
+                      return (
+                        <div
+                          key={c}
+                          style={{
+                            width: cellPx,
+                            height: cellPx,
+                            background: bg,
+                            border: `1px solid ${borderColor}`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: Math.max(4, cellPx - 4),
+                            color,
+                            lineHeight: 1,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {content}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
         <span className="font-mono text-[10px] text-center text-white/45 max-w-[280px]">
           &ldquo;{result.message}&rdquo;
         </span>

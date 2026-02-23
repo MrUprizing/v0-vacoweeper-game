@@ -8,6 +8,7 @@ export const sharedResults = pgTable("shared_results", {
   round: integer("round").notNull(),
   rank: text("rank"),
   message: text("message").notNull(),
+  boardState: text("board_state"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })
 

@@ -6,7 +6,7 @@ import { sharedResults } from "@/lib/db/schema"
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { won, difficulty, time, round, rank, message } = body
+    const { won, difficulty, time, round, rank, message, boardState } = body
 
     if (typeof won !== "boolean" || !difficulty || typeof time !== "number" || !message) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 })
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
       round: round ?? 1,
       rank: rank ?? null,
       message,
+      boardState: boardState ?? null,
     })
 
     return NextResponse.json({ id, url: `/share/${id}` })
