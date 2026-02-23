@@ -207,9 +207,18 @@ function ShareCard({
       const { id } = await res.json()
       const origin = window.location.origin
       const shareUrl = `${origin}/share/${id}`
-      await navigator.clipboard.writeText(shareUrl)
-      setLinkStatus("copied")
-    } catch {
+      if (navigator.share) {
+        await navigator.share({ url: shareUrl, title: "VacoWeeper result" })
+        setLinkStatus("copied")
+      } else {
+        await navigator.clipboard.writeText(shareUrl)
+        setLinkStatus("copied")
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        setLinkStatus("idle")
+        return
+      }
       setLinkStatus("idle")
     }
     setTimeout(() => setLinkStatus("idle"), 2500)
@@ -1200,7 +1209,12 @@ export default function Vacoweeper() {
           {/* Footer */}
           <div className="flex items-center justify-between px-3 py-2" style={{ borderTop: `1px solid ${borderFaint}` }}>
             <span className="font-mono text-[9px] tracking-[0.2em] uppercase" style={{ color: "rgba(255,255,255,0.2)" }}>
-              {gasBombMode ? "GAS BOMB ARMED -- TAP TARGET CELL" : "CLICK TO REVEAL / RIGHT CLICK TO FLAG"}
+              {gasBombMode ? "GAS BOMB ARMED -- TAP TARGET CELL" : (
+                <>
+                  <span className="hint-desktop">RIGHT CLICK TO FLAG</span>
+                  <span className="hint-mobile">LONG PRESS TO FLAG</span>
+                </>
+              )}
             </span>
             <motion.button
               onClick={() => { haptic(); setShowLeaderboard((p) => !p) }}

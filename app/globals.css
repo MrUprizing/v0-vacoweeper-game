@@ -115,6 +115,13 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+.hint-mobile { display: none; }
+.hint-desktop { display: inline; }
+@media (hover: none) and (pointer: coarse) {
+  .hint-mobile { display: inline; }
+  .hint-desktop { display: none; }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
