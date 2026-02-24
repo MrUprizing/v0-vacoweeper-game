@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import puppeteer from "puppeteer-core"
 import chromium from "@sparticuz/chromium-min"
+import fs from "node:fs"
+import path from "node:path"
 
 export const maxDuration = 60
 export const runtime = "nodejs"
@@ -95,12 +97,13 @@ function buildBoardHtml(boardState: string): string {
   }
 }
 
-async function fetchImageAsDataUri(url: string): Promise<string> {
+function readImageAsDataUri(relativePath: string): string {
   try {
-    const res = await fetch(url)
-    const buf = await res.arrayBuffer()
-    const mime = res.headers.get("content-type") || "image/jpeg"
-    return `data:${mime};base64,${Buffer.from(buf).toString("base64")}`
+    const filePath = path.join(process.cwd(), "public", relativePath)
+    const buf = fs.readFileSync(filePath)
+    const ext = path.extname(relativePath).toLowerCase()
+    const mime = ext === ".png" ? "image/png" : "image/jpeg"
+    return `data:${mime};base64,${buf.toString("base64")}`
   } catch {
     return ""
   }
@@ -201,8 +204,8 @@ export async function POST(request: NextRequest) {
     const { won, difficulty, time, round, rank, message, boardState } = body
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
 
-    const vacoImgPath = won ? "/images/vaco-face.jpeg" : "/images/vaco-sad.jpg"
-    const vacoImgDataUri = await fetchImageAsDataUri(`${baseUrl}${vacoImgPath}`)
+    const vacoImgPath = won ? "images/vaco-face.jpeg" : "images/vaco-sad.jpg"
+    const vacoImgDataUri = readImageAsDataUri(vacoImgPath)
 
     const html = buildCardHtml({ won, difficulty, time, round, rank, message, boardState, vacoImgDataUri })
 

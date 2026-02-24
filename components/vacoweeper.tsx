@@ -172,20 +172,15 @@ function ShareCard({
       })
       if (!res.ok) throw new Error("Screenshot failed")
       const blob = await res.blob()
-
-      if (navigator.share && navigator.canShare?.({ files: [new File([blob], "vacoweeper.png", { type: "image/png" })] })) {
-        const file = new File([blob], "vacoweeper.png", { type: "image/png" })
-        await navigator.share({ files: [file], text: "vacoweeper.vercel.app" })
-        setStatus("shared")
-      } else {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = "vacoweeper-result.png"
-        a.click()
-        URL.revokeObjectURL(url)
-        setStatus("saved")
-      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = "vacoweeper-result.png"
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setStatus("saved")
     } catch {
       setStatus("idle")
     }
@@ -205,18 +200,9 @@ function ShareCard({
       const { id } = await res.json()
       const origin = window.location.origin
       const shareUrl = `${origin}/share/${id}`
-      if (navigator.share) {
-        await navigator.share({ url: shareUrl, title: "VacoWeeper result" })
-        setLinkStatus("copied")
-      } else {
-        await navigator.clipboard.writeText(shareUrl)
-        setLinkStatus("copied")
-      }
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        setLinkStatus("idle")
-        return
-      }
+      await navigator.clipboard.writeText(shareUrl)
+      setLinkStatus("copied")
+    } catch {
       setLinkStatus("idle")
     }
     setTimeout(() => setLinkStatus("idle"), 2500)

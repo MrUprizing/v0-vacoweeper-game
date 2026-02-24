@@ -9,22 +9,21 @@ export const metadata: Metadata = {
   title: 'Vacoweeper - Minesweeper but with Vaco the Dog',
   description: 'A Minesweeper clone themed around Vaco, a black and white spotted dog who hates medicine. Collect treats, avoid pills!',
   generator: 'v0.app',
+  openGraph: {
+    title: 'Vacoweeper - Minesweeper but with Vaco the Dog',
+    description: 'Minesweeper but with Vaco',
+    images: [{ url: '/images/vacoweeper-og-image.png', width: 1200, height: 630 }],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Vacoweeper - Minesweeper but with Vaco the Dog',
+    description: 'Minesweeper but with Vaco',
+    images: ['/images/vacoweeper-og-image.png'],
+  },
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/images/vaco-face.jpeg',
+    apple: '/images/vaco-face.jpeg',
   },
 }
 
