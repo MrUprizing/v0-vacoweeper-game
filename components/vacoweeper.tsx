@@ -10,7 +10,6 @@ import { motion, AnimatePresence } from "framer-motion"
 type CellState = "hidden" | "revealed" | "flagged"
 interface Cell {
   isMine: boolean
-  isGoldenRetriever: boolean
   isBottle: boolean
   adjacentMines: number
   state: CellState
@@ -69,6 +68,7 @@ const RANK_THRESHOLDS: { max: number; rank: string }[] = [
 
 const MAX_SCORES_PER_DIFFICULTY = 5
 const STORAGE_KEY = "vacoweeper-leaderboard"
+const ONBOARDING_KEY = "vacoweeper-onboarding-done"
 
 function getDogRank(time: number): string {
   return (RANK_THRESHOLDS.find((t) => time <= t.max) ?? RANK_THRESHOLDS[RANK_THRESHOLDS.length - 1]).rank
@@ -563,6 +563,220 @@ function CornerBrackets({
 }
 
 // ---------------------------------------------------------------------------
+// Onboarding overlay
+// ---------------------------------------------------------------------------
+
+function Onboarding({ onDone }: { onDone: () => void }) {
+  const [slide, setSlide] = useState(0)
+  const [dir, setDir] = useState(1)
+  const TOTAL = 3
+  const accent = "#E8734A"
+
+  const handleDone = useCallback(() => {
+    try { localStorage.setItem(ONBOARDING_KEY, "1") } catch {}
+    onDone()
+  }, [onDone])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleDone() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [handleDone])
+
+  const goNext = () => {
+    if (slide < TOTAL - 1) { setDir(1); setSlide(slide + 1) }
+    else handleDone()
+  }
+
+  const goBack = () => {
+    if (slide > 0) { setDir(-1); setSlide(slide - 1) }
+  }
+
+  const titles = ["WHAT IS THIS?", "HOW TO PLAY", "SECRET WEAPONS"]
+
+  const exampleGrid = [
+    [
+      { content: "2", color: "#4AE87A", bg: "rgba(255,255,255,0.02)", bc: "rgba(255,255,255,0.04)" },
+      { content: "×", color: "#E84A4A", bg: "rgba(232,74,74,0.18)", bc: "rgba(232,74,74,0.3)" },
+      { content: "", color: "transparent", bg: "rgba(255,255,255,0.06)", bc: "rgba(255,255,255,0.1)" },
+    ],
+    [
+      { content: "▶", color: "#E8734A", bg: "rgba(232,115,74,0.12)", bc: "rgba(232,115,74,0.35)" },
+      { content: "1", color: "#6BA4E8", bg: "rgba(255,255,255,0.02)", bc: "rgba(255,255,255,0.04)" },
+      { content: "", color: "transparent", bg: "rgba(255,255,255,0.06)", bc: "rgba(255,255,255,0.1)" },
+    ],
+    [
+      { content: "", color: "transparent", bg: "rgba(255,255,255,0.06)", bc: "rgba(255,255,255,0.1)" },
+      { content: "", color: "transparent", bg: "rgba(255,255,255,0.06)", bc: "rgba(255,255,255,0.1)" },
+      { content: "", color: "transparent", bg: "rgba(255,255,255,0.06)", bc: "rgba(255,255,255,0.1)" },
+    ],
+  ]
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[300] flex items-center justify-center p-4"
+      style={{ background: "rgba(10,10,10,0.92)", backdropFilter: "blur(8px)" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={handleDone}
+    >
+      <motion.div
+        className="relative flex flex-col w-full"
+        style={{ maxWidth: 320, background: "#0a0a0a", border: `1px solid ${accent}44` }}
+        initial={{ scale: 0.88, opacity: 0, y: 24 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.88, opacity: 0, y: 24 }}
+        transition={{ type: "spring", stiffness: 260, damping: 22 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <CornerBrackets color={accent} size={12} thickness={1} offset={-4} squares />
+
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-2.5"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <span className="font-mono text-[10px] tracking-[0.2em] uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>
+            {"//HOW TO PLAY"}
+          </span>
+          <button
+            onClick={handleDone}
+            className="font-mono text-[9px] tracking-[0.15em] uppercase cursor-pointer px-2 py-0.5"
+            style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.3)" }}
+          >
+            {"SKIP"}
+          </button>
+        </div>
+
+        {/* Slide content */}
+        <div style={{ position: "relative", overflow: "hidden", minHeight: 228 }}>
+          <AnimatePresence mode="wait" custom={dir}>
+            <motion.div
+              key={slide}
+              custom={dir}
+              variants={{
+                enter: (d: number) => ({ x: d > 0 ? 60 : -60, opacity: 0 }),
+                center: { x: 0, opacity: 1 },
+                exit: (d: number) => ({ x: d > 0 ? -60 : 60, opacity: 0 }),
+              }}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.22, ease: "easeInOut" }}
+              className="flex flex-col items-center gap-4 px-5 py-5 text-center"
+            >
+              <VacoFace expression={slide === 2 ? "win" : slide === 1 ? "nervous" : "idle"} size={52} />
+              <span className="font-mono text-[12px] font-bold tracking-[0.2em] uppercase" style={{ color: "#E8E8E8" }}>
+                {titles[slide]}
+              </span>
+
+              {slide === 0 && (
+                <>
+                  <span className="font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.45)", maxWidth: 240, lineHeight: 1.7 }}>
+                    {"Vaco the dog explores the park. Reveal all safe tiles without stepping on hidden garbage pills!"}
+                  </span>
+                  <div className="flex items-center gap-5">
+                    <div className="flex items-center gap-1.5">
+                      <div style={{ width: 22, height: 22, background: "rgba(232,74,74,0.18)", border: "1px solid rgba(232,74,74,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#E84A4A", fontFamily: "monospace" }}>{"×"}</div>
+                      <span className="font-mono text-[9px] uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>{"GARBAGE"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div style={{ width: 22, height: 22, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#4AE87A", fontFamily: "monospace" }}>{"✓"}</div>
+                      <span className="font-mono text-[9px] uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>{"SAFE"}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {slide === 1 && (
+                <>
+                  <div className="flex flex-col gap-2 text-left w-full" style={{ maxWidth: 240 }}>
+                    {([
+                      ["CLICK", "Reveal a tile"],
+                      ["LONG PRESS", "Flag suspicious tile"],
+                      ["NUMBERS", "Adjacent garbage count"],
+                    ] as const).map(([key, val]) => (
+                      <div key={key} className="flex items-center gap-3">
+                        <span className="font-mono text-[9px] tracking-[0.05em] uppercase" style={{ color: accent, minWidth: 76, flexShrink: 0 }}>{key}</span>
+                        <span className="font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>{val}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    {exampleGrid.map((row, r) => (
+                      <div key={r} style={{ display: "flex", gap: 2 }}>
+                        {row.map((cell, c) => (
+                          <div
+                            key={c}
+                            style={{ width: 22, height: 22, background: cell.bg, border: `1px solid ${cell.bc}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: cell.color, fontFamily: "monospace", fontWeight: "bold" }}
+                          >{cell.content}</div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {slide === 2 && (
+                <div className="flex flex-col gap-3 w-full text-left" style={{ maxWidth: 240 }}>
+                  {([
+                    { icon: "~", label: "GAS BOMB", desc: "Reveals a 3×3 area safely. One use per game!" },
+                    { icon: "B", label: "LUCKY BOTTLE", desc: "A hidden bonus tile on the board." },
+                  ] as const).map(({ icon, label, desc }) => (
+                    <div key={label} className="flex items-start gap-3">
+                      <div style={{ width: 22, height: 22, background: "rgba(232,115,74,0.12)", border: `1px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: accent, flexShrink: 0, fontFamily: "monospace", fontWeight: "bold" }}>{icon}</div>
+                      <div>
+                        <span className="block font-mono text-[9px] tracking-[0.1em] uppercase" style={{ color: accent }}>{label}</span>
+                        <span className="block font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.4)", lineHeight: 1.5 }}>{desc}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Dot indicators */}
+        <div className="flex justify-center gap-2 py-2">
+          {Array.from({ length: TOTAL }).map((_, i) => (
+            <span
+              key={i}
+              style={{ width: 5, height: 5, borderRadius: "50%", background: i === slide ? accent : "rgba(255,255,255,0.15)", display: "inline-block", transition: "background 0.2s" }}
+            />
+          ))}
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between px-4 pb-4 pt-1" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <motion.button
+            onClick={goBack}
+            disabled={slide === 0}
+            className="font-mono text-[9px] tracking-[0.15em] uppercase px-3 py-1.5"
+            style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: slide === 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.4)", cursor: slide === 0 ? "not-allowed" : "pointer" }}
+            whileHover={slide > 0 ? { scale: 1.05 } : undefined}
+            whileTap={slide > 0 ? { scale: 0.95 } : undefined}
+          >
+            {"BACK"}
+          </motion.button>
+          <motion.button
+            onClick={goNext}
+            className="relative font-mono text-[9px] tracking-[0.15em] uppercase px-4 py-1.5 cursor-pointer"
+            style={{ background: "transparent", border: `1px solid ${accent}`, color: accent }}
+            whileHover={{ scale: 1.05, backgroundColor: accent, color: "#0a0a0a" }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <CornerBrackets color={accent} size={4} thickness={1} offset={-2} />
+            {slide === TOTAL - 1 ? "LET'S GO! 🐾" : "NEXT"}
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main game component
 // ---------------------------------------------------------------------------
 
@@ -576,7 +790,6 @@ export default function Vacoweeper() {
     const board: Cell[][] = Array.from({ length: config.rows }, () =>
       Array.from({ length: config.cols }, () => ({
         isMine: false,
-        isGoldenRetriever: false,
         isBottle: false,
         adjacentMines: 0,
         state: "hidden" as CellState,
@@ -592,13 +805,6 @@ export default function Vacoweeper() {
         board[r][c].isMine = true
         placed++
       }
-    }
-
-    // Golden retriever
-    const mines = board.flatMap((row, r) => row.map((cell, c) => (cell.isMine ? { r, c } : null)).filter(Boolean)) as { r: number; c: number }[]
-    if (mines.length > 0) {
-      const gr = mines[Math.floor(Math.random() * mines.length)]
-      board[gr.r][gr.c].isGoldenRetriever = true
     }
 
     // Bottle
@@ -629,8 +835,7 @@ export default function Vacoweeper() {
   const [gameState, setGameState] = useState<GameState>("idle")
   const [time, setTime] = useState(0)
   const [isMouseDown, setIsMouseDown] = useState(false)
-  const [hitGoldenRetriever, setHitGoldenRetriever] = useState(false)
-  const [firstClick, setFirstClick] = useState(true)
+const [firstClick, setFirstClick] = useState(true)
   const [round, setRound] = useState(1)
   const [gasBombAvailable, setGasBombAvailable] = useState(true)
   const [gasBombMode, setGasBombMode] = useState(false)
@@ -639,6 +844,7 @@ export default function Vacoweeper() {
   const [lastRank, setLastRank] = useState<string | null>(null)
   const [showShareCard, setShowShareCard] = useState(false)
   const [shareMessage, setShareMessage] = useState("")
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTriggeredRef = useRef(false)
@@ -667,7 +873,6 @@ export default function Vacoweeper() {
     setGameState("idle")
     setTime(0)
     setFirstClick(true)
-    setHitGoldenRetriever(false)
     setGasBombAvailable(true)
     setGasBombMode(false)
     if (timerRef.current) clearInterval(timerRef.current)
@@ -690,6 +895,14 @@ export default function Vacoweeper() {
 
   // Load leaderboard on mount
   useEffect(() => { setLeaderboard(loadLeaderboard()) }, [])
+
+  // Show onboarding on first visit (after audio unlock)
+  useEffect(() => {
+    if (!audioUnlocked) return
+    try {
+      if (!localStorage.getItem(ONBOARDING_KEY)) setShowOnboarding(true)
+    } catch {}
+  }, [audioUnlocked])
 
   // Record score on win
   useEffect(() => {
@@ -764,7 +977,6 @@ export default function Vacoweeper() {
       if (newBoard[r][c].isMine) {
         // Reveal all mines
         newBoard.forEach((row) => row.forEach((cell) => { if (cell.isMine) cell.state = "revealed" }))
-        if (newBoard[r][c].isGoldenRetriever) setHitGoldenRetriever(true)
         setBoard(newBoard)
         setGameState("lost")
         playLoss()
@@ -1010,6 +1222,17 @@ export default function Vacoweeper() {
                   {gameState === "idle" ? "READY" : gameState === "playing" ? "LIVE" : gameState === "won" ? "CLEAR" : "FAIL"}
                 </span>
               </div>
+              {/* Help button */}
+              <motion.button
+                onClick={() => setShowOnboarding(true)}
+                className="font-mono text-[10px] cursor-pointer flex items-center justify-center"
+                style={{ background: "transparent", border: `1px solid ${borderFaint}`, color: "rgba(255,255,255,0.3)", width: 18, height: 18 }}
+                whileHover={{ scale: 1.15, borderColor: accent, color: accent }}
+                whileTap={{ scale: 0.9 }}
+                aria-label="How to play"
+              >
+                {"?"}
+              </motion.button>
             </div>
           </div>
 
@@ -1233,12 +1456,12 @@ export default function Vacoweeper() {
                           {isRevealed && isMine && (
                             <motion.span
                               key="mine"
-                              style={{ color: cell.isGoldenRetriever ? "#FFD700" : "#E84A4A" }}
+                              style={{ color: "#E84A4A" }}
                               initial={{ scale: 0 }}
                               animate={{ scale: [0, 1.3, 1] }}
                               transition={{ duration: 0.3, times: [0, 0.6, 1] }}
                             >
-                              {cell.isGoldenRetriever ? "G" : "X"}
+                              {"X"}
                             </motion.span>
                           )}
                           {isRevealed && !isMine && (
@@ -1550,6 +1773,13 @@ export default function Vacoweeper() {
                 board={board}
                 onClose={() => setShowShareCard(false)}
               />
+            )}
+          </AnimatePresence>
+
+          {/* Onboarding overlay */}
+          <AnimatePresence>
+            {showOnboarding && (
+              <Onboarding onDone={() => setShowOnboarding(false)} />
             )}
           </AnimatePresence>
         </div>
