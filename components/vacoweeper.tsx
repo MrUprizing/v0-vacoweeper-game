@@ -896,6 +896,22 @@ const [firstClick, setFirstClick] = useState(true)
   // Load leaderboard on mount
   useEffect(() => { setLeaderboard(loadLeaderboard()) }, [])
 
+  // Allow pressing Enter to dismiss the splash screen
+  useEffect(() => {
+    if (audioUnlocked) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        haptic([20, 40, 20])
+        const audio = new Audio("/vaco-bark.mp3")
+        audio.volume = 0.4
+        audio.play().catch(() => {})
+        setAudioUnlocked(true)
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [audioUnlocked])
+
   // Show onboarding on first visit (after audio unlock)
   useEffect(() => {
     if (!audioUnlocked) return
