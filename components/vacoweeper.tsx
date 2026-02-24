@@ -477,6 +477,22 @@ function playMoo() {
   } catch {}
 }
 
+function playLoss() {
+  try {
+    const audio = new Audio("/vaco-bark-loss.mp3")
+    audio.volume = 0.6
+    audio.play().catch(() => {})
+  } catch {}
+}
+
+function playWin() {
+  try {
+    const audio = new Audio("/vaco-win.mp3")
+    audio.volume = 0.6
+    audio.play().catch(() => {})
+  } catch {}
+}
+
 // ---------------------------------------------------------------------------
 // VacoFace — uses the attached pixel art image
 // ---------------------------------------------------------------------------
@@ -751,6 +767,7 @@ export default function Vacoweeper() {
         if (newBoard[r][c].isGoldenRetriever) setHitGoldenRetriever(true)
         setBoard(newBoard)
         setGameState("lost")
+        playLoss()
         return
       }
 
@@ -760,7 +777,7 @@ export default function Vacoweeper() {
       // Check win
       const totalSafe = config.rows * config.cols - config.mines
       const revealed = newBoard.flat().filter((c) => c.state === "revealed" && !c.isMine).length
-      if (revealed === totalSafe) setGameState("won")
+      if (revealed === totalSafe) { setGameState("won"); playWin() }
     },
     [board, gameState, firstClick, createBoard, config, revealCell]
   )
@@ -831,7 +848,7 @@ export default function Vacoweeper() {
         // Check win
         const totalSafe = config.rows * config.cols - config.mines
         const revealed = newBoard.flat().filter((c) => c.state === "revealed" && !c.isMine).length
-        if (revealed === totalSafe) setGameState("won")
+        if (revealed === totalSafe) { setGameState("won"); playWin() }
         return
       }
       handleCellClick(r, c)

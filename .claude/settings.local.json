@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(git add:*)",
-      "Bash(git add components/vacoweeper.tsx && git commit -m \"$\\(cat <<'EOF'\nfix: make share card overlay background fully opaque\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git push 2>&1)"
+      "Bash(git add components/vacoweeper.tsx && git commit -m \"$\\(cat <<'EOF'\nfix: make share card overlay background fully opaque\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git push 2>&1)",
+      "Bash(npx vercel:*)",
+      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfeat: add loss and win sound effects\n\n- Play vaco-bark-loss.mp3 when player hits a mine\n- Play vaco-win.mp3 when player clears the board\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git push 2>&1)"
     ]
   }
 }
